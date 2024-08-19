@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.sh": "shellscript",
+        "types.h": "c",
+        "riscv.h": "c",
+        "user.h": "c"
+    }
+}
