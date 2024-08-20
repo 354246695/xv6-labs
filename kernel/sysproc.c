@@ -96,3 +96,25 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// lab4.2
+// 将用户传进来的参数记录到进程结构体中
+uint64 sys_sigalarm(void){
+  // lab2中已经知道，argint用于获取寄存器中的int型数据，argaddr获取地址型数据。
+  // 系统调用的两个参数按顺序存储在a0与a1中。
+  if(argint(0, &myproc()->AlarmInteval) < 0)
+    return -1;
+  if(argaddr(1, &myproc()->Handler) < 0)
+    return -1;
+  return 0;
+}
+uint64 sys_sigreturn(void){
+  struct proc* p = myproc();
+    
+  // 恢复现场并将计数器和标志重置
+  memmove(p->trapframe, &p->alarmframe, sizeof(struct trapframe));  
+  p->Counter = 0;                                                   
+  p->InHandler = 0;                       
+                              
+  return 0;
+}
