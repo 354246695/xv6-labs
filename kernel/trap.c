@@ -67,12 +67,35 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  }
+  else if(r_scause() == 13 || r_scause() == 15){
+    // page fault
+    // stval寄存器中保存了造成页面错误的虚拟地址，你可以通过r_stval()读取
+    uint64 va = r_stval();
+    char* pa = 0;
+    // printf("page fault, va=%p\n", va);
+    
+    // 杀死va高于分配内存，或杀死va低于用户栈的进程
+    if(va >= p->sz || va < p->trapframe->sp)
+      p->killed = 1;
+    // 或杀死分配物理地址失败的进程,分配成功则置零
+    if(!p->killed && (pa = kalloc()) != 0)
+      memset(pa, 0, PGSIZE);  // 将新初始化的物理内存页面 初始化为0
+    else p->killed = 1;
+    // 模仿 vm.c中的uvmalloc()
+    // 添加映射 
+    if (!p->killed && mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, (uint64)pa, PTE_W | PTE_R | PTE_U) != 0)
+    {
+      kfree(pa);
+      p->killed = 1;
+    }
+    // sepc未+4，结束后会继续执行原指令
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
   if(p->killed)
     exit(-1);
 

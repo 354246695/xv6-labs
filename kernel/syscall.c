@@ -68,7 +68,32 @@ int
 argaddr(int n, uint64 *ip)
 {
   *ip = argraw(n);
+  // 获取当前进程
+  struct proc* p = myproc();
+  // 处理向系统调用传入lazy allocation地址的情况
+  // 检查传递进来的虚拟地址是否有效
+  if(walkaddr(p->pagetable, *ip) == 0) {
+    if(PGROUNDUP(p->trapframe->sp) - 1 < *ip && *ip < p->sz) {
+
+      // 申请1页物理内存
+      char* pa = kalloc();
+      if(pa == 0)
+        return -1;
+
+      // 初始化物理内存
+      memset(pa, 0, PGSIZE);
+
+      // 映射, 将虚拟地址向下舍入到页面边界,因为va所在的这一页还没有对应的物理内存  
+      if(mappages(p->pagetable, PGROUNDDOWN(*ip), PGSIZE, (uint64)pa, PTE_R | PTE_W | PTE_X | PTE_U) != 0) {
+        kfree(pa);
+        return -1;
+      }
+    } else {
+      return -1;
+    }
+  }
   return 0;
+
 }
 
 // Fetch the nth word-sized system call argument as a null-terminated string.
