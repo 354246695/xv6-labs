@@ -67,12 +67,69 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } 
+
+  // lab6——2
+  
+  else if(r_scause() == 13 || r_scause() == 15){
+    // 1. 页面错误处理
+    // 获取出现页面错误的虚拟地址
+    uint64 va = r_stval();
+    // 获取当前进程
+    struct proc* p = myproc();
+    uint64 fault_pa;
+    pte_t* pte;
+
+    // 2. 检验页面错误是否来自cow,
+    // 如果是,那么父进程的物理地址中的PTE_W标志位复位，子进程要申请新的物理内存
+    if((pte = cow_walk(p->pagetable, PGROUNDDOWN(va))) == 0){
+      printf("usertrap: not cow page fault\n");
+      p->killed = 1;
+      goto end;
+    }
+
+    fault_pa = PTE2PA(*pte); // 转化为物理地址
+
+    // 3.1 如果计数器为1，则可能是父进程产生了页面错误，因为内存只剩1个引用
+    if(get_mem_count(fault_pa) == 1){
+      // 说明是父进程（可以这么理解，cow的子进程和父进程都会产生page fault ，
+      // 子进程页面错误后经过新分配物理内存后，会将内存的计数减1）
+      // 假设只有父进程/子进程，则计数器为1，那么父进程产生页面错误时计数器就为1，即进入分支。
+      // 这里要做的是将pte中的标志位复位。
+      *pte |= PTE_W;
+      // 去除PTE_RSW标志位
+      *pte &= ~PTE_RSW;
+    }
+    // 3.2 如果计数器不为1，可能有多个进程引用了同一段物理内存，那么需要重新分配物理内存/内存拷贝/mapping
+    else{
+      // 是 子进程
+      char* child_pa = kalloc();    // 分配新的物理地址
+      if(child_pa == 0){
+        printf("alloc physical memory failed");
+        p->killed = 1;
+        goto end;
+      }
+      // 将旧物理内存copy到新的物理内存
+      memmove(child_pa, (char*)fault_pa, PGSIZE);
+      
+      // 子进程页表解除与原来父进程的物理内存映射
+      uvmunmap(p->pagetable, PGROUNDDOWN(va), 1, 0);
+      // 映射, 将出错的虚拟地址向下舍入到页面边界,因为va所在的这一页还没有对应的物理内存
+      if(mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, (uint64)child_pa, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+        kfree(child_pa);
+        p->killed = 1;
+        goto end;
+      }
+      
+      // 子进程有新的物理内存了，需要对父进程物理内存的引用计数减1
+      kfree((void*)fault_pa);
+    }
+  }else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
+end:
   if(p->killed)
     exit(-1);
 

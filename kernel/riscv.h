@@ -352,3 +352,11 @@ sfence_vma()
 
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
+
+
+// lab6
+#define PTE_X (1L << 3)
+#define PTE_U (1L << 4) // 1 -> user can access
+#define PTE_RSW (1L << 8) // 用这个标志位来表示cow的页面错误
+
+

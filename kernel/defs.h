@@ -185,3 +185,10 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+// lab6
+int             get_mem_count(uint64 pa);
+void            mem_count_up(uint64 pa);
+int             mem_count_down(uint64 pa);
+void            mem_count_set_one(uint64 pa);
+pte_t*          cow_walk(pagetable_t , uint64 );

@@ -23,10 +23,20 @@ struct {
   struct run *freelist;
 } kmem;
 
+// 内存引用计数的结构体
+struct 
+{
+  struct spinlock lock;// 若有多个进行同时对数组进行操作，需要上锁
+  int mem_count[PHYSTOP/PGSIZE];
+}mem_ref_struct;
+
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  // 初始化mem_ref_struct的锁
+  initlock(&mem_ref_struct.lock, "mem_ref");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -35,8 +45,11 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE){
+    // 系统初始化时会调用kfree，将内存引用减1，所以这里先设为1
+    mem_count_set_one((uint64)p);
     kfree(p);
+  }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -51,15 +64,20 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  // // Fill with junk to catch dangling refs.
+  // memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+  if(mem_count_down((uint64)pa) == 1){
+      // 说明内存引用为0， 需要释放物理内存
+      // Fill with junk to catch dangling refs.
+      memset(pa, 1, PGSIZE);
+      acquire(&kmem.lock);
+      r->next = kmem.freelist;
+      kmem.freelist = r;
+      release(&kmem.lock);
+  }
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -72,11 +90,52 @@ kalloc(void)
 
   acquire(&kmem.lock);
   r = kmem.freelist;
-  if(r)
+  if(r){
     kmem.freelist = r->next;
+    // 设置内存引用为1
+    // 提示：当kalloc()分配页时，将页的引用计数设置为1
+    mem_count_set_one((uint64)r);
+  }
   release(&kmem.lock);
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+// lab6—— 1.2
+// 封装 内存引用计数的接口
+
+// 获取指定物理地址的内存引用计数
+int get_mem_count(uint64 pa){
+  int count; 
+  acquire(&mem_ref_struct.lock);
+  count = mem_ref_struct.mem_count[(uint64)pa / PGSIZE];
+  release(&mem_ref_struct.lock);
+  return count;
+}
+
+// 将指定物理地址的内存引用计数加一
+void mem_count_up(uint64 pa){
+  acquire(&mem_ref_struct.lock);
+  ++ mem_ref_struct.mem_count[(uint64)pa / PGSIZE];
+  release(&mem_ref_struct.lock);
+}
+
+// 将指定物理地址的内存引用计数减一，并在计数减到零时返回一个标志
+int mem_count_down(uint64 pa){
+  int flag = 0;
+  acquire(&mem_ref_struct.lock);
+  if((-- mem_ref_struct.mem_count[(uint64)pa / PGSIZE]) == 0){
+    flag = 1;
+  }
+  release(&mem_ref_struct.lock);
+  return flag;
+}
+
+// 将指定物理地址的内存引用计数设置为1
+void mem_count_set_one(uint64 pa){
+  acquire(&mem_ref_struct.lock);
+  mem_ref_struct.mem_count[(uint64)pa / PGSIZE] = 1;
+  release(&mem_ref_struct.lock);
 }
