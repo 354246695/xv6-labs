@@ -17,6 +17,8 @@ struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
 
+pthread_mutex_t locks[NBUCKET]; // 2.1 declare a lock
+
 double
 now()
 {
@@ -39,7 +41,10 @@ static
 void put(int key, int value)
 {
   int i = key % NBUCKET;
-
+  // 2.3 加上锁
+  // 使线程变成原子操作，避免同时在哈希桶进行insert操作
+  // 每个散列桶 加上锁
+  pthread_mutex_lock(&locks[i]); // acquire lock
   // is the key already present?
   struct entry *e = 0;
   for (e = table[i]; e != 0; e = e->next) {
@@ -53,6 +58,8 @@ void put(int key, int value)
     // the new is new.
     insert(key, value, &table[i], table[i]);
   }
+  // 2.3 释放锁
+  pthread_mutex_unlock(&locks[i]); // release lock
 }
 
 static struct entry*
@@ -106,6 +113,11 @@ main(int argc, char *argv[])
   if (argc < 2) {
     fprintf(stderr, "Usage: %s nthreads\n", argv[0]);
     exit(-1);
+  }
+  // 2.2 初始化互斥锁
+  for (int i = 0; i < NBUCKET; i++)
+  {
+    pthread_mutex_init(&locks[i], NULL);
   }
   nthread = atoi(argv[1]);
   tha = malloc(sizeof(pthread_t) * nthread);

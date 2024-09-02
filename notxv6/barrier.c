@@ -30,6 +30,28 @@ barrier()
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
+  // lab7 2.3
+  // 获得锁
+  pthread_mutex_lock(&bstate.barrier_mutex); // acquire lock
+
+  // 到达barrier的线程数量+1
+  bstate.nthread++;
+  
+  if(bstate.nthread == nthread){
+    // 所有线程都到达barrier
+    // 轮数+1
+    bstate.round++;
+    // 将bstate.nthread 置零，重新开始一轮
+    bstate.nthread = 0;
+    // 唤醒睡在cond的所有线程
+    pthread_cond_broadcast(&bstate.barrier_cond);
+  }
+  else{
+    // 在cond上进入睡眠，释放锁mutex，在醒来时重新获取
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);
+  }
+  // 释放锁
+  pthread_mutex_unlock(&bstate.barrier_mutex); // release lock
   
 }
 
