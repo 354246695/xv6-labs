@@ -11,3 +11,6 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       10000  // size of file system in blocks
 #define MAXPATH      128   // maximum file path name
+// lab8.2 提示“可以使用固定数量的散列桶，而不动态调整哈希表的大小。
+//        使用素数个存储桶（例如13）来降低散列冲突的可能性”
+#define NBUCKET      13     /** 哈希表桶数 */ 
