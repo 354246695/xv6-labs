@@ -180,7 +180,6 @@ steal:
   panic("bget: no buf");
 }
 
-
 // bread() 和 bwrite() 无需我们修改：
 // bread() 是提供给上层的接口，
 // 当 kernel 要从 Buffer cache 中读取数据时，就会调用 bread() 。
@@ -227,7 +226,7 @@ brelse(struct buf *b)
   int id = myhash(b->blockno);
   acquire(&bcache.lks[id]);
   b->refcnt--;
-  
+
   if(b->refcnt == 0)
     b->lastuse = ticks; // 根据提示：记录最近被使用的时间戳（改为标记 kernel/trap.c中的ticks）
   release(&bcache.lks[id]);
