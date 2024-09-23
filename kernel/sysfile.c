@@ -484,3 +484,7 @@ sys_pipe(void)
   }
   return 0;
 }
+
+
+// lab 10
+// 1. add

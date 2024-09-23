@@ -3,8 +3,10 @@
 #define O_RDWR    0x002
 #define O_CREATE  0x200
 #define O_TRUNC   0x400
+ //宏 NVMA 表示虚拟内存区域的个数，规定是一个进程能够支持 16 个文件
+#define NVMA      16        
 
-#ifdef LAB_MMAP
+// #ifdef LAB_MMAP
 #define PROT_NONE       0x0
 #define PROT_READ       0x1
 #define PROT_WRITE      0x2
@@ -12,4 +14,4 @@
 
 #define MAP_SHARED      0x01
 #define MAP_PRIVATE     0x02
-#endif
+// #endif

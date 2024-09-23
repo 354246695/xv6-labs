@@ -1,3 +1,5 @@
+#include "fcntl.h"
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -103,4 +105,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  struct vma vmas[NVMA];       // 进程支持16个文件
+};
+
+//lab 10
+// 根据提示：
+// 虚拟内存区域（ virtual memory area ）保存mmap元数据
+// 在进程的地址空间中找到一个未使用的区域来映射文件
+struct vma {
+  uint64 addr;
+  int len;
+  int prot;
+  int flags;
+  int fd;
+  int offset;
+  struct file *file;
 };

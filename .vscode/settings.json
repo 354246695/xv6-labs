@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.sh": "shellscript",
+        "file.h": "c",
+        "fcntl.h": "c"
+    }
+}

@@ -290,6 +290,14 @@ fork(void)
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
+  // 6. lab10,
+  /** 子进程要拷贝父进程的 vmas */
+  for(int i=0; i<NVMA; i++) {
+    memmove(&np->vmas[i], &p->vmas[i], sizeof(p->vmas[i]));
+    if(p->vmas[i].file)
+      filedup(p->vmas[i].file);
+  }
+
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
